@@ -713,7 +713,8 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
 
         Args:
             slug: The unique text identifier for the recipe.
-            tags: Tag names to add, e.g. ["Quick", "Healthy"].
+            tags: Tag names to add, e.g. ["Quick", "Healthy"]. An empty list
+                is rejected with an error rather than treated as a no-op.
 
         Returns:
             Dict[str, Any]: The updated recipe details.
