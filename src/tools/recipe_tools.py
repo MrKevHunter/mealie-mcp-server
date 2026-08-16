@@ -702,6 +702,32 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             raise ToolError(error_msg)
 
     @mcp.tool()
+    def add_recipe_tags(slug: str, tags: List[str]) -> Dict[str, Any]:
+        """Add one or more tags to a recipe, keeping any tags it already has.
+
+        Unlike set_recipe_tags (which replaces the whole tag list), this is
+        additive: existing tags are preserved. Tag names are matched
+        case-insensitively against the recipe's current tags and against
+        Mealie's existing tags; any name with no match is created as a new
+        tag automatically, so there's no need to call get_tags() first.
+
+        Args:
+            slug: The unique text identifier for the recipe.
+            tags: Tag names to add, e.g. ["Quick", "Healthy"].
+
+        Returns:
+            Dict[str, Any]: The updated recipe details.
+        """
+        try:
+            logger.info({"message": "Adding recipe tags", "slug": slug, "tags": tags})
+            return mealie.add_recipe_tags(slug, tags)
+        except Exception as e:
+            error_msg = f"Error adding tags to recipe '{slug}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
     def update_recipe_categories_and_tags(
         slug: str,
         category_ids: Optional[List[str]] = None,
