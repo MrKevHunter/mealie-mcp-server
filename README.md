@@ -130,6 +130,7 @@ Restart Claude Desktop to load the server.
 - `set_recipe_image_from_url` - Set image from URL
 - `upload_recipe_image_file` - Upload image file
 - `upload_recipe_asset_file` - Upload document/asset
+- `add_recipe_tags` - Add tags by name, keeping existing ones (auto-creates unknown names)
 - `delete_recipe` - Delete recipe
 
 ### Shopping List Tools (14 operations)
