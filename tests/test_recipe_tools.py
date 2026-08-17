@@ -1,6 +1,8 @@
 """Tests for the recipe-authoring tools (structured ingredients, full create,
 patch fields, concise output)."""
 
+import pytest
+
 
 async def test_create_recipe_accepts_flat_and_structured(invoke, fetcher):
     await invoke(
@@ -120,3 +122,55 @@ async def test_get_recipe_concise_includes_orgurl_tags_tools(invoke, fetcher):
     assert out["orgURL"] == "https://example.com/r"
     assert out["tags"] == [{"id": "t1", "name": "Quick", "slug": "quick"}]
     assert out["tools"][0]["name"] == "Pfanne"
+
+
+async def test_add_recipe_tags_creates_new_tag(invoke, fetcher):
+    fetcher.recipe = {
+        **fetcher.recipe,
+        "tags": [{"id": "t1", "name": "Quick", "slug": "quick"}],
+    }
+
+    await invoke("add_recipe_tags", slug="test-recipe", tags=["Healthy"])
+
+    create_call = fetcher.last("POST", "/api/organizers/tags")
+    assert create_call["json"] == {"name": "Healthy"}
+
+    body = fetcher.last("PATCH", "/api/recipes/test-recipe")["json"]
+    assert body["tags"] == [
+        {"id": "t1", "name": "Quick", "slug": "quick"},
+        {"id": "tag-1", "name": "Healthy", "slug": "healthy"},
+    ]
+
+
+async def test_add_recipe_tags_reuses_existing_mealie_tag(invoke, fetcher):
+    fetcher.tags = [{"id": "existing-1", "name": "Healthy", "slug": "healthy"}]
+    fetcher.recipe = {**fetcher.recipe, "tags": []}
+
+    await invoke("add_recipe_tags", slug="test-recipe", tags=["healthy"])
+
+    assert fetcher.last("POST", "/api/organizers/tags") is None
+    body = fetcher.last("PATCH", "/api/recipes/test-recipe")["json"]
+    assert body["tags"] == [{"id": "existing-1", "name": "Healthy", "slug": "healthy"}]
+
+
+async def test_add_recipe_tags_skips_tag_already_on_recipe(invoke, fetcher):
+    fetcher.recipe = {
+        **fetcher.recipe,
+        "tags": [{"id": "t1", "name": "Quick", "slug": "quick"}],
+    }
+
+    await invoke("add_recipe_tags", slug="test-recipe", tags=["Quick", "Quick"])
+
+    assert fetcher.last("POST", "/api/organizers/tags") is None
+    body = fetcher.last("PATCH", "/api/recipes/test-recipe")["json"]
+    assert body["tags"] == [{"id": "t1", "name": "Quick", "slug": "quick"}]
+
+
+async def test_add_recipe_tags_validates_inputs(invoke, fetcher):
+    from mcp.server.fastmcp.exceptions import ToolError
+
+    with pytest.raises(ToolError):
+        await invoke("add_recipe_tags", slug="", tags=["Quick"])
+
+    with pytest.raises(ToolError):
+        await invoke("add_recipe_tags", slug="test-recipe", tags=[])

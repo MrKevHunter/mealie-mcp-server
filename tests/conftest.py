@@ -43,6 +43,7 @@ class FakeFetcher(MealieFetcher):
         self.requests = []
         self.created_slug = "test-recipe"
         self.recipe = dict(BASE_RECIPE)
+        self.tags = []
 
     def _handle_request(self, method, url, **kwargs):
         self.requests.append(
@@ -81,6 +82,21 @@ class FakeFetcher(MealieFetcher):
         if method == "GET" and url.startswith("/api/organizers/tags/"):
             item_id = url.rsplit("/", 1)[-1]
             return {"id": item_id, "name": "Tag", "slug": "tag"}
+        if method == "GET" and url == "/api/organizers/tags":
+            search = (kwargs.get("params") or {}).get("search")
+            items = self.tags
+            if search:
+                items = [t for t in items if search.lower() in t["name"].lower()]
+            return {"items": items, "page": 1, "perPage": 50, "total": len(items)}
+        if method == "POST" and url == "/api/organizers/tags":
+            name = (kwargs.get("json") or {}).get("name")
+            tag = {
+                "id": f"tag-{len(self.tags) + 1}",
+                "name": name,
+                "slug": name.lower().replace(" ", "-"),
+            }
+            self.tags.append(tag)
+            return tag
         if method == "GET" and url.startswith("/api/households/mealplans/"):
             return {
                 "id": url.rsplit("/", 1)[-1],
