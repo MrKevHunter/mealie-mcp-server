@@ -170,12 +170,14 @@ Restart Claude Desktop to load the server.
 - `update_tag` - Update tag
 - `delete_tag` - Delete tag
 
-### Food Tools (5 operations)
+### Food Tools (7 operations)
 - `get_foods` - List/search foods (resolve ids for structured ingredients)
 - `create_food` - Create a new food
 - `get_food` - Get by ID
 - `update_food` - Update food
 - `delete_food` - Delete food
+- `set_food_on_hand` - Mark/unmark a food as on-hand (by id) for the current household
+- `mark_foods_on_hand` - Mark/unmark common ingredients as on-hand by name, creating missing foods
 
 ### Unit Tools (5 operations)
 - `get_units` - List/search units
@@ -199,7 +201,7 @@ Restart Claude Desktop to load the server.
 - `create_mealplan_bulk` - Create multiple entries
 - `get_todays_mealplan` - Get today's meals
 
-**Total: 62 tools** providing comprehensive Mealie API coverage
+**Total: 64 tools** providing comprehensive Mealie API coverage
 
 ## 🔧 Development
 

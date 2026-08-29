@@ -1,6 +1,6 @@
 import logging
 import traceback
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
@@ -153,6 +153,65 @@ def register_foods_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             return mealie.delete_food(food_id)
         except Exception as e:
             error_msg = f"Error deleting food '{food_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def set_food_on_hand(food_id: str, on_hand: bool = True) -> Dict[str, Any]:
+        """Mark or unmark a food as on-hand for the current household.
+
+        Args:
+            food_id: The UUID of the food.
+            on_hand: True to mark on-hand, False to clear it. Defaults to True.
+
+        Returns:
+            Dict[str, Any]: The updated food.
+        """
+        try:
+            logger.info(
+                {
+                    "message": "Setting food on-hand status",
+                    "food_id": food_id,
+                    "on_hand": on_hand,
+                }
+            )
+            return mealie.set_food_on_hand(food_id, on_hand=on_hand)
+        except Exception as e:
+            error_msg = f"Error setting on-hand status for food '{food_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def mark_foods_on_hand(
+        names: List[str], on_hand: bool = True
+    ) -> Dict[str, Any]:
+        """Mark or unmark common ingredients as on-hand, by name.
+
+        Use this instead of set_food_on_hand when you know ingredient names
+        (e.g. pantry staples like "Salt", "Flour", "Olive Oil") but not their
+        Mealie food IDs. Names are matched case-insensitively against
+        existing foods; a name with no match is created as a new food.
+
+        Args:
+            names: Food names to update.
+            on_hand: True to mark on-hand, False to clear it. Defaults to True.
+
+        Returns:
+            Dict[str, Any]: {"updated": [...updated foods], "created": [...names of foods that were created]}.
+        """
+        try:
+            logger.info(
+                {"message": "Marking foods on-hand", "names": names, "on_hand": on_hand}
+            )
+            return mealie.set_foods_on_hand_by_name(names, on_hand=on_hand)
+        except Exception as e:
+            error_msg = f"Error marking foods on-hand: {str(e)}"
             logger.error({"message": error_msg})
             logger.debug(
                 {"message": "Error traceback", "traceback": traceback.format_exc()}

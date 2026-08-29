@@ -107,6 +107,8 @@ async def test_delete_tool(invoke, fetcher):
         "get_food",
         "update_food",
         "delete_food",
+        "set_food_on_hand",
+        "mark_foods_on_hand",
         "get_units",
         "create_unit",
         "get_unit",

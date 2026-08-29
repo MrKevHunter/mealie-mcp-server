@@ -44,6 +44,7 @@ class FakeFetcher(MealieFetcher):
         self.created_slug = "test-recipe"
         self.recipe = dict(BASE_RECIPE)
         self.tags = []
+        self.foods = []
 
     def _handle_request(self, method, url, **kwargs):
         self.requests.append(
@@ -64,11 +65,27 @@ class FakeFetcher(MealieFetcher):
             return dict(self.recipe)
         if method in ("PUT", "PATCH") and url.startswith("/api/recipes/"):
             return kwargs.get("json", {})
+        if method == "GET" and url == "/api/users/self":
+            return {
+                "id": "user-1",
+                "householdId": "household-1",
+                "email": "test@example.com",
+            }
         # single-record GET (the fetch-merge update path reads the existing record)
+        if method == "GET" and url.startswith("/api/foods/"):
+            food_id = url.rsplit("/", 1)[-1]
+            existing = next((f for f in self.foods if f["id"] == food_id), None)
+            if existing is not None:
+                return dict(existing)
+            return {
+                "id": food_id,
+                "name": "Existing",
+                "pluralName": "Existings",
+                "description": "old",
+                "householdsWithIngredientFood": [],
+            }
         if method == "GET" and (
-            url.startswith("/api/foods/")
-            or url.startswith("/api/units/")
-            or url.startswith("/api/organizers/tools/")
+            url.startswith("/api/units/") or url.startswith("/api/organizers/tools/")
         ):
             return {
                 "id": url.rsplit("/", 1)[-1],
@@ -113,9 +130,33 @@ class FakeFetcher(MealieFetcher):
                 "userId": "user-1",
                 "name": "Existing list",
             }
+        # foods list/create are backed by an in-memory store so search/match
+        # flows (e.g. set_foods_on_hand_by_name) can be exercised end-to-end
+        if method == "GET" and url == "/api/foods":
+            search = (kwargs.get("params") or {}).get("search")
+            items = self.foods
+            if search:
+                items = [f for f in items if search.lower() in f["name"].lower()]
+            return {"items": items, "page": 1, "perPage": 50, "total": len(items)}
+        if method == "POST" and url == "/api/foods":
+            payload = kwargs.get("json") or {}
+            food = {
+                **payload,
+                "id": f"food-{len(self.foods) + 1}",
+                "householdsWithIngredientFood": [],
+            }
+            self.foods.append(food)
+            return food
+        if method == "PUT" and url.startswith("/api/foods/"):
+            food_id = url.rsplit("/", 1)[-1]
+            updated = kwargs.get("json", {})
+            for i, f in enumerate(self.foods):
+                if f["id"] == food_id:
+                    self.foods[i] = updated
+                    break
+            return updated
         # list endpoints
         if method == "GET" and url in (
-            "/api/foods",
             "/api/units",
             "/api/organizers/tools",
         ):
@@ -127,16 +168,13 @@ class FakeFetcher(MealieFetcher):
             }
         # create echoes the body with a generated id
         if method == "POST" and url in (
-            "/api/foods",
             "/api/units",
             "/api/organizers/tools",
         ):
             return {**(kwargs.get("json") or {}), "id": "generated-0001"}
         # full-replace update echoes the merged body
         if method == "PUT" and (
-            url.startswith("/api/foods/")
-            or url.startswith("/api/units/")
-            or url.startswith("/api/organizers/tools/")
+            url.startswith("/api/units/") or url.startswith("/api/organizers/tools/")
         ):
             return kwargs.get("json", {})
         # delete (Mealie normalizes the empty body to a success payload)

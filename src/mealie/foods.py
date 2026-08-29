@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from utils import format_api_params
 
@@ -121,3 +121,94 @@ class FoodsMixin:
 
         logger.info({"message": "Deleting food", "food_id": food_id})
         return self._handle_request("DELETE", f"/api/foods/{food_id}")
+
+    def set_food_on_hand(self, food_id: str, on_hand: bool = True) -> Dict[str, Any]:
+        """Mark or unmark a food as on-hand for the current household.
+
+        Mealie tracks on-hand status per household via the
+        ``householdsWithIngredientFood`` list on the food record rather than
+        a single global boolean, so this fetches the current household id,
+        then fetch-merges the food (Mealie's PUT replaces the whole record).
+
+        Args:
+            food_id: The UUID of the food
+            on_hand: True to mark on-hand for the current household, False to clear it
+
+        Returns:
+            JSON response containing the updated food
+        """
+        if not food_id:
+            raise ValueError("Food ID cannot be empty")
+
+        existing = self.get_food(food_id)
+        household_id = self.get_current_user().get("householdId")
+        households = list(existing.get("householdsWithIngredientFood", []))
+
+        if on_hand:
+            if household_id not in households:
+                households.append(household_id)
+        else:
+            households = [h for h in households if h != household_id]
+
+        merged = {**existing, "householdsWithIngredientFood": households}
+
+        logger.info(
+            {"message": "Setting food on-hand status", "food_id": food_id, "on_hand": on_hand}
+        )
+        return self._handle_request("PUT", f"/api/foods/{food_id}", json=merged)
+
+    def set_foods_on_hand_by_name(
+        self, names: List[str], on_hand: bool = True
+    ) -> Dict[str, Any]:
+        """Mark or unmark foods as on-hand by name, creating missing foods.
+
+        Names are matched case-insensitively against existing foods (the
+        same approach ``add_recipe_tags`` uses for tag names); a name with
+        no match is created as a new food before being marked on-hand.
+
+        Args:
+            names: Food names to update (created in Mealie if they don't exist)
+            on_hand: True to mark on-hand for the current household, False to clear it
+
+        Returns:
+            Dict with "updated" (the updated food records) and "created"
+            (names of foods that had to be created)
+        """
+        if not names:
+            raise ValueError("Food names cannot be empty")
+
+        logger.info(
+            {"message": "Marking foods on-hand", "names": names, "on_hand": on_hand}
+        )
+
+        household_id = self.get_current_user().get("householdId")
+        updated = []
+        created = []
+
+        for raw_name in names:
+            name = raw_name.strip()
+            if not name:
+                continue
+
+            matches = self.get_foods(search=name).get("items", [])
+            food = next(
+                (f for f in matches if (f.get("name") or "").lower() == name.lower()),
+                None,
+            )
+            if food is None:
+                food = self.create_food(name)
+                created.append(name)
+
+            households = list(food.get("householdsWithIngredientFood", []))
+            if on_hand:
+                if household_id not in households:
+                    households.append(household_id)
+            else:
+                households = [h for h in households if h != household_id]
+
+            merged = {**food, "householdsWithIngredientFood": households}
+            updated.append(
+                self._handle_request("PUT", f"/api/foods/{food['id']}", json=merged)
+            )
+
+        return {"updated": updated, "created": created}
