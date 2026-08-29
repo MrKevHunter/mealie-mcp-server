@@ -212,3 +212,93 @@ class FoodsMixin:
             )
 
         return {"updated": updated, "created": created}
+
+    def set_food_aliases(self, food_id: str, aliases: List[str]) -> Dict[str, Any]:
+        """Replace a food's aliases with the given list.
+
+        Args:
+            food_id: The UUID of the food
+            aliases: Alias names to set (replaces any existing aliases; pass
+                an empty list to clear all aliases)
+
+        Returns:
+            JSON response containing the updated food
+        """
+        if not food_id:
+            raise ValueError("Food ID cannot be empty")
+        if aliases is None:
+            raise ValueError("Aliases cannot be None")
+
+        existing = self.get_food(food_id)
+
+        seen = set()
+        alias_dicts = []
+        for raw_alias in aliases:
+            name = raw_alias.strip()
+            if not name or name.lower() in seen:
+                continue
+            alias_dicts.append({"name": name})
+            seen.add(name.lower())
+
+        merged = {**existing, "aliases": alias_dicts}
+
+        logger.info(
+            {"message": "Setting food aliases", "food_id": food_id, "aliases": aliases}
+        )
+        return self._handle_request("PUT", f"/api/foods/{food_id}", json=merged)
+
+    def add_food_alias(self, food_id: str, alias: str) -> Dict[str, Any]:
+        """Add an alias to a food, keeping any aliases it already has.
+
+        Args:
+            food_id: The UUID of the food
+            alias: Alias name to add
+
+        Returns:
+            JSON response containing the updated food
+        """
+        if not food_id:
+            raise ValueError("Food ID cannot be empty")
+        if not alias:
+            raise ValueError("Alias cannot be empty")
+
+        existing = self.get_food(food_id)
+        aliases = list(existing.get("aliases", []))
+        known = {(a.get("name") or "").lower() for a in aliases}
+
+        name = alias.strip()
+        if name and name.lower() not in known:
+            aliases.append({"name": name})
+
+        merged = {**existing, "aliases": aliases}
+
+        logger.info({"message": "Adding food alias", "food_id": food_id, "alias": alias})
+        return self._handle_request("PUT", f"/api/foods/{food_id}", json=merged)
+
+    def remove_food_alias(self, food_id: str, alias: str) -> Dict[str, Any]:
+        """Remove an alias from a food.
+
+        Args:
+            food_id: The UUID of the food
+            alias: Alias name to remove (matched case-insensitively)
+
+        Returns:
+            JSON response containing the updated food
+        """
+        if not food_id:
+            raise ValueError("Food ID cannot be empty")
+        if not alias:
+            raise ValueError("Alias cannot be empty")
+
+        existing = self.get_food(food_id)
+        target = alias.strip().lower()
+        aliases = [
+            a for a in existing.get("aliases", []) if (a.get("name") or "").lower() != target
+        ]
+
+        merged = {**existing, "aliases": aliases}
+
+        logger.info(
+            {"message": "Removing food alias", "food_id": food_id, "alias": alias}
+        )
+        return self._handle_request("PUT", f"/api/foods/{food_id}", json=merged)

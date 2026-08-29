@@ -83,6 +83,7 @@ class FakeFetcher(MealieFetcher):
                 "pluralName": "Existings",
                 "description": "old",
                 "householdsWithIngredientFood": [],
+                "aliases": [],
             }
         if method == "GET" and (
             url.startswith("/api/units/") or url.startswith("/api/organizers/tools/")

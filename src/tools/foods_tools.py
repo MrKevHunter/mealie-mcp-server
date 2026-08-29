@@ -217,3 +217,80 @@ def register_foods_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
                 {"message": "Error traceback", "traceback": traceback.format_exc()}
             )
             raise ToolError(error_msg)
+
+    @mcp.tool()
+    def set_food_aliases(food_id: str, aliases: List[str]) -> Dict[str, Any]:
+        """Replace a food's aliases with the given list.
+
+        Aliases let Mealie match alternate names for a food (e.g. "Scallion"
+        as an alias for "Green Onion") when parsing ingredients. This
+        replaces the whole list; pass an empty list to clear all aliases, or
+        use add_food_alias/remove_food_alias to change one at a time.
+
+        Args:
+            food_id: The UUID of the food.
+            aliases: Alias names to set, e.g. ["Scallion", "Spring Onion"].
+
+        Returns:
+            Dict[str, Any]: The updated food.
+        """
+        try:
+            logger.info(
+                {"message": "Setting food aliases", "food_id": food_id, "aliases": aliases}
+            )
+            return mealie.set_food_aliases(food_id, aliases)
+        except Exception as e:
+            error_msg = f"Error setting aliases for food '{food_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def add_food_alias(food_id: str, alias: str) -> Dict[str, Any]:
+        """Add an alias to a food, keeping any aliases it already has.
+
+        Args:
+            food_id: The UUID of the food.
+            alias: Alias name to add, e.g. "Scallion".
+
+        Returns:
+            Dict[str, Any]: The updated food.
+        """
+        try:
+            logger.info(
+                {"message": "Adding food alias", "food_id": food_id, "alias": alias}
+            )
+            return mealie.add_food_alias(food_id, alias)
+        except Exception as e:
+            error_msg = f"Error adding alias to food '{food_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def remove_food_alias(food_id: str, alias: str) -> Dict[str, Any]:
+        """Remove an alias from a food.
+
+        Args:
+            food_id: The UUID of the food.
+            alias: Alias name to remove (matched case-insensitively).
+
+        Returns:
+            Dict[str, Any]: The updated food.
+        """
+        try:
+            logger.info(
+                {"message": "Removing food alias", "food_id": food_id, "alias": alias}
+            )
+            return mealie.remove_food_alias(food_id, alias)
+        except Exception as e:
+            error_msg = f"Error removing alias from food '{food_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
