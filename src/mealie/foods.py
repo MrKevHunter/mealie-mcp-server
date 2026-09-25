@@ -153,7 +153,11 @@ class FoodsMixin:
         merged = {**existing, "householdsWithIngredientFood": households}
 
         logger.info(
-            {"message": "Setting food on-hand status", "food_id": food_id, "on_hand": on_hand}
+            {
+                "message": "Setting food on-hand status",
+                "food_id": food_id,
+                "on_hand": on_hand,
+            }
         )
         return self._handle_request("PUT", f"/api/foods/{food_id}", json=merged)
 
@@ -272,8 +276,87 @@ class FoodsMixin:
 
         merged = {**existing, "aliases": aliases}
 
-        logger.info({"message": "Adding food alias", "food_id": food_id, "alias": alias})
+        logger.info(
+            {"message": "Adding food alias", "food_id": food_id, "alias": alias}
+        )
         return self._handle_request("PUT", f"/api/foods/{food_id}", json=merged)
+
+    def set_food_label(self, food_id: str, label_id: Optional[str]) -> Dict[str, Any]:
+        """Set or clear a food's label.
+
+        Args:
+            food_id: The UUID of the food
+            label_id: The UUID of the label to assign, or None to clear the
+                food's label
+
+        Returns:
+            JSON response containing the updated food
+        """
+        if not food_id:
+            raise ValueError("Food ID cannot be empty")
+
+        existing = self.get_food(food_id)
+        merged = {**existing, "labelId": label_id}
+
+        logger.info(
+            {"message": "Setting food label", "food_id": food_id, "label_id": label_id}
+        )
+        return self._handle_request("PUT", f"/api/foods/{food_id}", json=merged)
+
+    def set_food_label_by_name(self, food_name: str, label_name: str) -> Dict[str, Any]:
+        """Set a food's label, resolving both by name.
+
+        The food must already exist (matched case-insensitively). The label
+        is matched case-insensitively too, and created if no label with that
+        name exists yet, mirroring the auto-create behaviour of
+        ``set_foods_on_hand_by_name``.
+
+        Args:
+            food_name: Name of the food to update
+            label_name: Name of the label to assign
+
+        Returns:
+            JSON response containing the updated food
+        """
+        if not food_name:
+            raise ValueError("Food name cannot be empty")
+        if not label_name:
+            raise ValueError("Label name cannot be empty")
+
+        food_matches = self.get_foods(search=food_name).get("items", [])
+        food = next(
+            (
+                f
+                for f in food_matches
+                if (f.get("name") or "").lower() == food_name.lower()
+            ),
+            None,
+        )
+        if food is None:
+            raise ValueError(f"No food found with name '{food_name}'")
+
+        label_matches = self.get_labels(search=label_name).get("items", [])
+        label = next(
+            (
+                label
+                for label in label_matches
+                if (label.get("name") or "").lower() == label_name.lower()
+            ),
+            None,
+        )
+        if label is None:
+            label = self.create_label(label_name)
+
+        merged = {**food, "labelId": label["id"]}
+
+        logger.info(
+            {
+                "message": "Setting food label by name",
+                "food_name": food_name,
+                "label_name": label_name,
+            }
+        )
+        return self._handle_request("PUT", f"/api/foods/{food['id']}", json=merged)
 
     def remove_food_alias(self, food_id: str, alias: str) -> Dict[str, Any]:
         """Remove an alias from a food.
@@ -293,7 +376,9 @@ class FoodsMixin:
         existing = self.get_food(food_id)
         target = alias.strip().lower()
         aliases = [
-            a for a in existing.get("aliases", []) if (a.get("name") or "").lower() != target
+            a
+            for a in existing.get("aliases", [])
+            if (a.get("name") or "").lower() != target
         ]
 
         merged = {**existing, "aliases": aliases}

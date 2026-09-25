@@ -188,9 +188,7 @@ def register_foods_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             raise ToolError(error_msg)
 
     @mcp.tool()
-    def mark_foods_on_hand(
-        names: List[str], on_hand: bool = True
-    ) -> Dict[str, Any]:
+    def mark_foods_on_hand(names: List[str], on_hand: bool = True) -> Dict[str, Any]:
         """Mark or unmark common ingredients as on-hand, by name.
 
         Use this instead of set_food_on_hand when you know ingredient names
@@ -236,7 +234,11 @@ def register_foods_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
         """
         try:
             logger.info(
-                {"message": "Setting food aliases", "food_id": food_id, "aliases": aliases}
+                {
+                    "message": "Setting food aliases",
+                    "food_id": food_id,
+                    "aliases": aliases,
+                }
             )
             return mealie.set_food_aliases(food_id, aliases)
         except Exception as e:
@@ -265,6 +267,70 @@ def register_foods_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             return mealie.add_food_alias(food_id, alias)
         except Exception as e:
             error_msg = f"Error adding alias to food '{food_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def set_food_label(food_id: str, label_id: Optional[str] = None) -> Dict[str, Any]:
+        """Set or clear a food's label.
+
+        Args:
+            food_id: The UUID of the food.
+            label_id: The UUID of the label to assign. Omit or pass None to
+                clear the food's label.
+
+        Returns:
+            Dict[str, Any]: The updated food.
+        """
+        try:
+            logger.info(
+                {
+                    "message": "Setting food label",
+                    "food_id": food_id,
+                    "label_id": label_id,
+                }
+            )
+            return mealie.set_food_label(food_id, label_id)
+        except Exception as e:
+            error_msg = f"Error setting label for food '{food_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def set_food_label_by_name(food_name: str, label_name: str) -> Dict[str, Any]:
+        """Set a food's label, resolving both the food and label by name.
+
+        Use this instead of set_food_label when you know the food and label
+        names but not their Mealie IDs. Both are matched case-insensitively;
+        the food must already exist, but the label is created if no label
+        with that name exists yet.
+
+        Args:
+            food_name: Name of the food to update, e.g. "Carrot".
+            label_name: Name of the label to assign, e.g. "Produce".
+
+        Returns:
+            Dict[str, Any]: The updated food.
+        """
+        try:
+            logger.info(
+                {
+                    "message": "Setting food label by name",
+                    "food_name": food_name,
+                    "label_name": label_name,
+                }
+            )
+            return mealie.set_food_label_by_name(food_name, label_name)
+        except Exception as e:
+            error_msg = (
+                f"Error setting label '{label_name}' for food '{food_name}': {str(e)}"
+            )
             logger.error({"message": error_msg})
             logger.debug(
                 {"message": "Error traceback", "traceback": traceback.format_exc()}

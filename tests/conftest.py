@@ -45,6 +45,7 @@ class FakeFetcher(MealieFetcher):
         self.recipe = dict(BASE_RECIPE)
         self.tags = []
         self.foods = []
+        self.labels = []
 
     def _handle_request(self, method, url, **kwargs):
         self.requests.append(
@@ -115,6 +116,36 @@ class FakeFetcher(MealieFetcher):
             }
             self.tags.append(tag)
             return tag
+        if method == "GET" and url == "/api/groups/labels":
+            search = (kwargs.get("params") or {}).get("search")
+            items = self.labels
+            if search:
+                items = [lbl for lbl in items if search.lower() in lbl["name"].lower()]
+            return {"items": items, "page": 1, "perPage": 50, "total": len(items)}
+        if method == "POST" and url == "/api/groups/labels":
+            payload = kwargs.get("json") or {}
+            label = {
+                "color": "#959595",
+                **payload,
+                "id": f"label-{len(self.labels) + 1}",
+            }
+            self.labels.append(label)
+            return label
+        if method == "GET" and url.startswith("/api/groups/labels/"):
+            label_id = url.rsplit("/", 1)[-1]
+            existing = next((lbl for lbl in self.labels if lbl["id"] == label_id), None)
+            if existing is not None:
+                return dict(existing)
+            return {"id": label_id, "name": "Existing", "color": "#959595"}
+        if method == "PUT" and url.startswith("/api/groups/labels/"):
+            label_id = url.rsplit("/", 1)[-1]
+            updated = kwargs.get("json", {})
+            for i, lbl in enumerate(self.labels):
+                if lbl["id"] == label_id:
+                    self.labels[i] = {**lbl, **updated}
+                    updated = self.labels[i]
+                    break
+            return updated
         if method == "GET" and url.startswith("/api/households/mealplans/"):
             return {
                 "id": url.rsplit("/", 1)[-1],
