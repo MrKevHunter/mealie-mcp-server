@@ -338,6 +338,43 @@ def register_foods_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             raise ToolError(error_msg)
 
     @mcp.tool()
+    def set_foods_label_by_name(
+        food_names: List[str], label_name: str
+    ) -> Dict[str, Any]:
+        """Set one label on multiple foods at once, by name.
+
+        Use this instead of calling set_food_label_by_name repeatedly when
+        applying the same label to a batch of foods (e.g. tagging a set of
+        ingredients as "Produce"). The label is resolved once (created if it
+        doesn't exist) and applied to every matching food; food names are
+        matched case-insensitively and are NOT auto-created, so a typo is
+        reported instead of silently creating a new food.
+
+        Args:
+            food_names: Names of the foods to update, e.g. ["Carrot", "Onion"].
+            label_name: Name of the label to assign to all of them, e.g. "Produce".
+
+        Returns:
+            Dict[str, Any]: {"updated": [...updated foods], "not_found": [...names with no matching food]}.
+        """
+        try:
+            logger.info(
+                {
+                    "message": "Setting label on foods by name",
+                    "food_names": food_names,
+                    "label_name": label_name,
+                }
+            )
+            return mealie.set_foods_label_by_name(food_names, label_name)
+        except Exception as e:
+            error_msg = f"Error setting label '{label_name}' on foods: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
     def remove_food_alias(food_id: str, alias: str) -> Dict[str, Any]:
         """Remove an alias from a food.
 

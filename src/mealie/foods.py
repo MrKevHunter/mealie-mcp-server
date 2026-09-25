@@ -303,6 +303,21 @@ class FoodsMixin:
         )
         return self._handle_request("PUT", f"/api/foods/{food_id}", json=merged)
 
+    def _resolve_or_create_label(self, label_name: str) -> Dict[str, Any]:
+        """Look up a label by name (case-insensitive), creating it if missing."""
+        label_matches = self.get_labels(search=label_name).get("items", [])
+        label = next(
+            (
+                label
+                for label in label_matches
+                if (label.get("name") or "").lower() == label_name.lower()
+            ),
+            None,
+        )
+        if label is None:
+            label = self.create_label(label_name)
+        return label
+
     def set_food_label_by_name(self, food_name: str, label_name: str) -> Dict[str, Any]:
         """Set a food's label, resolving both by name.
 
@@ -335,18 +350,7 @@ class FoodsMixin:
         if food is None:
             raise ValueError(f"No food found with name '{food_name}'")
 
-        label_matches = self.get_labels(search=label_name).get("items", [])
-        label = next(
-            (
-                label
-                for label in label_matches
-                if (label.get("name") or "").lower() == label_name.lower()
-            ),
-            None,
-        )
-        if label is None:
-            label = self.create_label(label_name)
-
+        label = self._resolve_or_create_label(label_name)
         merged = {**food, "labelId": label["id"]}
 
         logger.info(
@@ -357,6 +361,61 @@ class FoodsMixin:
             }
         )
         return self._handle_request("PUT", f"/api/foods/{food['id']}", json=merged)
+
+    def set_foods_label_by_name(
+        self, food_names: List[str], label_name: str
+    ) -> Dict[str, Any]:
+        """Set one label on multiple foods at once, resolving all by name.
+
+        The label is resolved once (case-insensitive, created if missing) and
+        applied to every matching food. Unlike ``set_foods_on_hand_by_name``,
+        this does not create missing foods: a name with no match is reported
+        under "not_found" instead, so one typo doesn't abort the whole batch.
+
+        Args:
+            food_names: Names of the foods to update
+            label_name: Name of the label to assign to all of them
+
+        Returns:
+            Dict with "updated" (the updated food records) and "not_found"
+            (names that didn't match an existing food)
+        """
+        if not food_names:
+            raise ValueError("Food names cannot be empty")
+        if not label_name:
+            raise ValueError("Label name cannot be empty")
+
+        label = self._resolve_or_create_label(label_name)
+        updated = []
+        not_found = []
+
+        for raw_name in food_names:
+            name = raw_name.strip()
+            if not name:
+                continue
+
+            matches = self.get_foods(search=name).get("items", [])
+            food = next(
+                (f for f in matches if (f.get("name") or "").lower() == name.lower()),
+                None,
+            )
+            if food is None:
+                not_found.append(name)
+                continue
+
+            merged = {**food, "labelId": label["id"]}
+            updated.append(
+                self._handle_request("PUT", f"/api/foods/{food['id']}", json=merged)
+            )
+
+        logger.info(
+            {
+                "message": "Setting label on foods by name",
+                "food_names": food_names,
+                "label_name": label_name,
+            }
+        )
+        return {"updated": updated, "not_found": not_found}
 
     def remove_food_alias(self, food_id: str, alias: str) -> Dict[str, Any]:
         """Remove an alias from a food.

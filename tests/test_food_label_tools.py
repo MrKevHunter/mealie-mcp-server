@@ -60,3 +60,56 @@ async def test_set_food_label_by_name_errors_on_unknown_food(invoke, fetcher):
         await invoke(
             "set_food_label_by_name", food_name="Nonexistent", label_name="Produce"
         )
+
+
+# --- set_foods_label_by_name ----------------------------------------------------
+
+
+async def test_set_foods_label_by_name_applies_to_all_matches(invoke, fetcher):
+    fetcher.foods = [
+        {"id": "f1", "name": "Carrot", "aliases": []},
+        {"id": "f2", "name": "Onion", "aliases": []},
+    ]
+    fetcher.labels = [{"id": "l1", "name": "Produce", "color": "#4CAF50"}]
+
+    result = await invoke(
+        "set_foods_label_by_name",
+        food_names=["Carrot", "Onion"],
+        label_name="Produce",
+    )
+
+    assert fetcher.last("PUT", "/api/foods/f1")["json"]["labelId"] == "l1"
+    assert fetcher.last("PUT", "/api/foods/f2")["json"]["labelId"] == "l1"
+    assert len(fetcher.labels) == 1
+    assert result["not_found"] == []
+
+
+async def test_set_foods_label_by_name_creates_label_once(invoke, fetcher):
+    fetcher.foods = [
+        {"id": "f1", "name": "Carrot", "aliases": []},
+        {"id": "f2", "name": "Onion", "aliases": []},
+    ]
+
+    await invoke(
+        "set_foods_label_by_name",
+        food_names=["Carrot", "Onion"],
+        label_name="Produce",
+    )
+
+    assert len(fetcher.labels) == 1
+
+
+async def test_set_foods_label_by_name_reports_unmatched_names(invoke, fetcher):
+    fetcher.foods = [{"id": "f1", "name": "Carrot", "aliases": []}]
+    fetcher.labels = [{"id": "l1", "name": "Produce", "color": "#4CAF50"}]
+
+    result = await invoke(
+        "set_foods_label_by_name",
+        food_names=["Carrot", "Nonexistent"],
+        label_name="Produce",
+    )
+
+    assert [f["id"] for f in result["updated"]] == ["f1"]
+    assert result["not_found"] == ["Nonexistent"]
+    # unmatched name shouldn't stop the label from being created/applied
+    assert len(fetcher.labels) == 1
